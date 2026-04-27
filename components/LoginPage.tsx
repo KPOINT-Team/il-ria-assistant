@@ -58,7 +58,7 @@ export default function LoginPage() {
               required
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-5 font-black text-sm focus:border-orange-500 outline-none transition-all shadow-inner"
+              className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-5 font-black text-sm focus:border-black outline-none transition-all shadow-inner"
               placeholder="Enter your Client ID"
               disabled={loading}
             />
@@ -77,7 +77,7 @@ export default function LoginPage() {
               required
               value={clientSecret}
               onChange={(e) => setClientSecret(e.target.value)}
-              className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-5 font-black text-sm focus:border-orange-500 outline-none transition-all shadow-inner"
+              className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-5 font-black text-sm focus:border-black outline-none transition-all shadow-inner"
               placeholder="Enter your Client Secret"
               disabled={loading}
             />
