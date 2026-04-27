@@ -1,10 +1,16 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { PRODUCT_MASTER_DATA } from "../knowledge/productMaster.ts";
 import { MAYANK_POLICY_DATA } from "../knowledge/mayankPolicy.ts";
 import { PUNE_NETWORK_HOSPITALS, HOSPITAL_SEARCH_INSTRUCTIONS } from "../knowledge/networkHospitals.ts";
 import { tryWithFallbackModel } from "../utils/retryLogic.ts";
+import { proxyGenerate } from "./authService.ts";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+function extractText(response: any): string {
+  try {
+    return response.candidates?.[0]?.content?.parts?.[0]?.text || response.text || '';
+  } catch {
+    return '';
+  }
+}
 
 const MASTER_KNOWLEDGE_BASE = `
 --- PRODUCT MASTER: ICICI LOMBARD ELEVATE HEALTH ---
@@ -193,7 +199,6 @@ export const generateEnhancedChatResponse = async (
   history: {role: string, content: string}[],
   sessionId: string
 ): Promise<EnhancedChatResult> => {
-  const ai = getAI();
   const conversationContext = history.map(h => `${h.role}: ${h.content}`).join('\n');
   const category = categorizeQuery(userMessage);
 
@@ -262,42 +267,37 @@ export const generateEnhancedChatResponse = async (
     QUERY CATEGORY: ${category}
   `;
 
-  const config = {
+  const generationConfig = {
     responseMimeType: "application/json",
     responseSchema: {
-      type: Type.OBJECT,
+      type: "OBJECT",
       properties: {
-        answer: { type: Type.STRING },
-        suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+        answer: { type: "STRING" },
+        suggestions: { type: "ARRAY", items: { type: "STRING" } },
         keyEntities: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
+          type: "ARRAY",
+          items: { type: "STRING" },
           description: "Extract key entities like policy numbers, hospital names, treatment types mentioned"
         }
       },
       required: ["answer", "suggestions"]
-    },
-    systemInstruction
+    }
+  };
+
+  const baseRequest = {
+    contents: [{ role: 'user', parts: [{ text: contents }] }],
+    systemInstruction,
+    generationConfig
   };
 
   // Try with Pro model first, fallback to Flash model if overloaded
   const response = await tryWithFallbackModel(
-    // Primary: Gemini Pro
-    async () => ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents,
-      config
-    }),
-    // Fallback: Gemini Flash (faster, more capacity)
-    async () => ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents,
-      config
-    })
+    async () => proxyGenerate({ ...baseRequest, model: 'gemini-3-pro-preview' }),
+    async () => proxyGenerate({ ...baseRequest, model: 'gemini-3-flash-preview' })
   );
 
   try {
-    const result = JSON.parse(response.text || '{}');
+    const result = JSON.parse(extractText(response) || '{}');
     const followUpQuestions = getAnticipatedFollowUps(category, result.answer);
     const contextActions = getContextActions(category, userMessage);
 
